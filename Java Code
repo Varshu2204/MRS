@@ -1,0 +1,119 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import javax.sound.sampled.*;
+import java.awt.*;
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+
+public class MedicineReminderApp extends JFrame {
+    private JTextField medicineNameField;
+    private JTextField timeField;
+    private DefaultTableModel tableModel;
+    private List<Medicine> medicineList = new ArrayList<>();
+
+    public MedicineReminderApp() {
+        setTitle("Medicine Reminder App");
+        setSize(600, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+
+        // Top Panel
+        JPanel inputPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        inputPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        inputPanel.add(new JLabel("Medicine Name:"));
+        medicineNameField = new JTextField();
+        inputPanel.add(medicineNameField);
+
+        inputPanel.add(new JLabel("Time (HH:mm):"));
+        timeField = new JTextField();
+        inputPanel.add(timeField);
+
+        JButton addButton = new JButton("Add Reminder");
+        inputPanel.add(addButton);
+
+        JButton exitButton = new JButton("Exit");
+        inputPanel.add(exitButton);
+
+        add(inputPanel, BorderLayout.NORTH);
+
+        // Table
+        tableModel = new DefaultTableModel(new String[]{"Medicine", "Time"}, 0);
+        JTable table = new JTable(tableModel);
+        add(new JScrollPane(table), BorderLayout.CENTER);
+
+        // Add Button Action
+        addButton.addActionListener(e -> {
+            String name = medicineNameField.getText().trim();
+            String time = timeField.getText().trim();
+
+            if (!name.isEmpty() && time.matches("\\d{2}:\\d{2}")) {
+                tableModel.addRow(new String[]{name, time});
+                medicineList.add(new Medicine(name, time));
+                medicineNameField.setText("");
+                timeField.setText("");
+            } else {
+                JOptionPane.showMessageDialog(this, "Invalid input. Please enter name and time (HH:mm).");
+            }
+        });
+
+        // Exit
+        exitButton.addActionListener(e -> System.exit(0));
+
+        // Reminder Check Timer
+        Timer timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            public void run() {
+                LocalTime now = LocalTime.now();
+                for (Medicine med : medicineList) {
+                    if (now.getHour() == med.time.getHour() && now.getMinute() == med.time.getMinute()) {
+                        showNotification(med.name);
+                    }
+                }
+            }
+        }, 0, 60000); // check every 60 sec
+    }
+
+    private void showNotification(String medicineName) {
+        SwingUtilities.invokeLater(() -> {
+            playSound("notification.wav"); // Make sure the file is present
+            JOptionPane.showMessageDialog(this,
+                    "Time to take your medicine: " + medicineName,
+                    "Reminder",
+                    JOptionPane.INFORMATION_MESSAGE);
+        });
+    }
+
+    private void playSound(String soundFilePath) {
+        try {
+            File soundFile = new File(soundFilePath);
+            AudioInputStream audioIn = AudioSystem.getAudioInputStream(soundFile);
+            Clip clip = AudioSystem.getClip();
+            clip.open(audioIn);
+            clip.start();
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new MedicineReminderApp().setVisible(true));
+    }
+
+    // Medicine class
+    static class Medicine {
+        String name;
+        LocalTime time;
+
+        Medicine(String name, String timeStr) {
+            this.name = name;
+            this.time = LocalTime.parse(timeStr);
+        }
+    }
+}
